@@ -94,18 +94,30 @@ def tftp_transfer(fd, hostname, direction, filename):
         
     # Check if we are putting a file or getting a file and send
     #  the corresponding request.
-    if direction == OPCODE_RRQ: #Get file
+    if direction == OPCODE_RRQ: #We want to Get file
         message = make_packet_rrq(filename, MODE_NETASCII)
         socket.sendto(message, hostname)
-        msg = socket.recv(516) # Recieve message
+        msg = socket.recv(516) # Recieve message from server
         answer = parse_package(msg)
 
-
+    elif direction == OPCODE_WRQ: #We want to Put file
+        message = make_packet_wrq(filename, MODE_NETASCII)
+        socket.sendto(message, hostname)
+        msg = socket.recv(516) # message from server
+        answer = parse_package(msg)
     # Put or get the file, block by block, in a loop.
     while True:
+        if answer[0] == 3:
+            with open('received_file', 'wb') as f:
+                data = socket.recv(516)
+                f.write(data)
+            
+        
+
         # Wait for packet, write the data to the filedescriptor or
         # read the next block from the file. Send new packet to server.
         # Don't forget to deal with timeouts and received error packets.
+        # r,w,e = socket.select
         pass
 
 
