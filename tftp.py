@@ -82,7 +82,7 @@ def parse_packet(msg):
         return opcode, errorcode, errormsg
     else: 
         return ERROR_CODES[1]
-return None
+    return None
     
 def tftp_transfer(fd, hostname, direction, filename):
     # Implement this function
@@ -108,11 +108,22 @@ def tftp_transfer(fd, hostname, direction, filename):
     # Put or get the file, block by block, in a loop.
     while True:
         if answer[0] == 3:
+            data = []
+            chunk = answer[1]
             with open('received_file', 'wb') as f:
-                data = socket.recv(516)
+                while chunk != 0:
+                    datas = socket.recv(516)
+                    packet = parse_package(datas)
+                    chunk = packet[1]
+                    data.append(datas)
                 f.write(data)
             
-        
+        elif answer[0] == 4:
+            tot_sent = 0
+            tot_packet = len(filename)
+            while tot_sent < tot_packet:
+                sent = socket.send(filename) #May or may not be right parameter here...
+                tot_sent.append(sent)
 
         # Wait for packet, write the data to the filedescriptor or
         # read the next block from the file. Send new packet to server.
