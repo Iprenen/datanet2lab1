@@ -42,10 +42,10 @@ def make_packet_wrq(filename, mode):
     # TODO Write code for send wrq request, check if  ACK = Blocknr 0 => accepted, OPcode = 1
 
 def make_packet_data(blocknr, data): #Opcode = 3
-    return struct.pack("!HH", OPCODE_DATA) + blocknr + data # TODO
+    return struct.pack("!HH", OPCODE_DATA, blocknr) + data # TODO
 
 def make_packet_ack(blocknr): # 
-    return struct.pack("!HH", OPCODE_ACK) + blocknr # TODO
+    return struct.pack("!HH", OPCODE_ACK, blocknr) # TODO
 
 def make_packet_err(errcode, errmsg):
     return struct.pack("!H", OPCODE_ERR) + errcode + errmsg + '\0' # TODO
@@ -66,18 +66,14 @@ def parse_packet(msg):
             return None
         return opcode, l[1], l[2]
     elif opcode == OPCODE_DATA:
-        blocknr = msg[2:3]
+        blocknr = struct.unpack("!H", msg[2:4])
         data = msg[4:]
-        if len(data) < 512:
-            last = 1
-        else: 
-            last = 0
-        return opcode, blocknr, data, last
+        return opcode, blocknr, data
     elif opcode == OPCODE_ACK:
-        blocknr = msg[2:]
+        blocknr = struct.unpack("!H", msg[2:4])
         return opcode, blocknr
     elif opcode == OPCODE_ERR:
-        errorcode = msg[2:3]
+        errorcode = struct.unpack("!H", msg[2:4])
         errormsg = msg[4:].split('\0')
         return opcode, errorcode, errormsg
     else: 
@@ -86,40 +82,59 @@ def parse_packet(msg):
     
 def tftp_transfer(fd, hostname, direction, filename):
     # Implement this function
-    
     # Open socket interface
     # Creating a socket to be used
-    socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    Port_ok = 6969
+
+    server_addr = socket.getaddrinfo(hostname, Port_ok)[0][4:][0]
+    server_addr_ip = server_addr[0]
+    server_addr_port = server_addr[1]
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     #socket.bind('', TFPT_PORT) # Leave to OS, fixes itself
         
     # Check if we are putting a file or getting a file and send
     #  the corresponding request.
     if direction == OPCODE_RRQ: #We want to Get file
         message = make_packet_rrq(filename, MODE_OCTET)
-        socket.sendto(message, hostname)
-        f = open('received_file', 'wb')
+        sock.sendto(message, server_addr)
+        last_recieved = 0
 
     elif direction == OPCODE_WRQ: #We want to Put file
         message = make_packet_wrq(filename, MODE_OCTET)
-        socket.sendto(message, hostname)
-        msg = socket.recv(516) # message from server
-        answer = parse_package(msg)
+        sock.sendto(message, server_addr)
+
     # Put or get the file, block by block, in a loop.
     while True:
-        msg = socket.recv(516) # Recieve message from server
-        answer = parse_package(msg)
-        if answer[0] == 3:
-            blocknr = answer[1]
-            data = answer[2]
-            socket.sendto(make_packet_ack(blocknr), hostname)
-            f.write(data)
+        readable, writable, exceptional = select.select([sock], [], [], 1)
+        if direction == TFTP_GET:
+            if readable > 0: 
+                chunk_of_data, addr = sock.recvfrom(516) # Recieve message from server
+                opcode, blocknr, data = parse_packet(chunk_of_data)
+                if len(data) >= 512:
+                    print "Created ack with nr " + str(blocknr[0])
+                    ack = make_packet_ack(blocknr[0])
+                    sock.sendto(ack, addr)
+                    print "Sent ack to server"
+                    print "Wrote to file"
+                    fd.write(data)
+                else:
+                    print "Created ack with nr " + str(blocknr[0])
+                    ack = make_packet_ack(blocknr[0])
+                    sock.sendto(ack, addr)
+                    print "Sent ack to server"
+                    print "Wrote to file"
+                    fd.write(data)
+                    print "End of transfer"
+                    break
             
-        elif answer[0] == 4:
+        elif direction == TFTP_PUT:
             tot_sent = 0
             tot_packet = len(filename)
             while tot_sent < tot_packet:
-                sent = socket.send(filename) #May or may not be right parameter here...
+                sent = sock.send(filename) #May or may not be right parameter here...
                 tot_sent.append(sent)
+        else: 
+            print "Failed miserably"
 
         # Wait for packet, write the data to the filedescriptor or
         # read the next block from the file. Send new packet to server.
