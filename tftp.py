@@ -102,6 +102,7 @@ def tftp_transfer(fd, hostname, direction, filename):
     elif direction == OPCODE_WRQ: #We want to Put file
         message = make_packet_wrq(filename, MODE_OCTET)
         sock.sendto(message, server_addr)
+        i = 0;
 
     # Put or get the file, block by block, in a loop.
     while True:
@@ -126,13 +127,37 @@ def tftp_transfer(fd, hostname, direction, filename):
                     fd.write(data)
                     print "End of transfer"
                     break
+            else:
+                print "Recieve timeout 5 sec"
+                sock.Timeout(5)
+
             
         elif direction == TFTP_PUT:
-            tot_sent = 0
-            tot_packet = len(filename)
-            while tot_sent < tot_packet:
-                sent = sock.send(filename) #May or may not be right parameter here...
-                tot_sent.append(sent)
+            if readable > 0:
+                chunk_of_data, addr = sock.recvfrom(516) # Recieve message from server
+                opcode, blocknr, data = parse_packet(chunk_of_data)
+                if opcode == OPCODE_ACK and blocknr == i:
+                    if len(fd[i*512:]) > 512:
+                        print "sending packet nr :" + str(i)
+                        blocknr = i
+                        chunk_to_be_sent = fd[i*512:(i+1)*512]
+                        totalpacket = make_packet_data(blocknr, chunk_to_be_sent)
+                        sock.sendto(totalpacket, server_addr)
+                        i++
+
+                    else:
+                        blocknr = i
+                        chunk_to_be_sent = fd[i*512:]
+                        totalpacket = make_packet_data(blocknr, chunk_to_be_sent)
+                        sock.sendto(totalpacket, server_addr)
+                        print "Total file sent"
+                        break
+                else: 
+                    print "Opcode: " + str(opcode) + " Something went wrong..."
+            else:
+                print "Send timeout 5 sec"
+                sock.Timeout(5)
+
         else: 
             print "Failed miserably"
 
