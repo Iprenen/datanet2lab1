@@ -42,10 +42,10 @@ def make_packet_wrq(filename, mode):
     # TODO Write code for send wrq request, check if  ACK = Blocknr 0 => accepted, OPcode = 1
 
 def make_packet_data(blocknr, data): #Opcode = 3
-    return struct.pack("!H", OPCODE_DATA) + blocknr + data # TODO
+    return struct.pack("!HH", OPCODE_DATA) + blocknr + data # TODO
 
 def make_packet_ack(blocknr): # 
-    return struct.pack("!H", OPCODE_ACK) + blocknr # TODO
+    return struct.pack("!HH", OPCODE_ACK) + blocknr # TODO
 
 def make_packet_err(errcode, errmsg):
     return struct.pack("!H", OPCODE_ERR) + errcode + errmsg + '\0' # TODO
