@@ -111,14 +111,15 @@ def tftp_transfer(fd, hostname, direction, filename):
             if readable > 0: 
                 chunk_of_data, addr = sock.recvfrom(516) # Recieve message from server
                 opcode, blocknr, data = parse_packet(chunk_of_data)
-                if len(data) >= 512:
+                if len(data) >= 512 and last_recieved == blocknr[0]-1:
                     print "Created ack with nr " + str(blocknr[0])
                     ack = make_packet_ack(blocknr[0])
                     sock.sendto(ack, addr)
                     print "Sent ack to server"
                     print "Wrote to file"
                     fd.write(data)
-                else:
+                    last_recieved = blocknr[0]
+                elif len(data) < 512 and last_recieved == blocknr[0]-1:
                     print "Created ack with nr " + str(blocknr[0])
                     ack = make_packet_ack(blocknr[0])
                     sock.sendto(ack, addr)
@@ -127,6 +128,10 @@ def tftp_transfer(fd, hostname, direction, filename):
                     fd.write(data)
                     print "End of transfer"
                     break
+                else:
+                    ack = make_packet_ack(last_recieved)
+                    sock.sendto(ack, addr)
+                    print "Resent ack"
             else:
                 print "Recieve timeout 5 sec"
                 sock.Timeout(5)
@@ -135,7 +140,7 @@ def tftp_transfer(fd, hostname, direction, filename):
         elif direction == TFTP_PUT:
             if readable > 0:
                 chunk_of_data, addr = sock.recvfrom(516) # Recieve message from server
-                opcode, blocknr, data = parse_packet(chunk_of_data)
+                opcode, blocknr, arg = parse_packet(chunk_of_data)
                 if opcode == OPCODE_ACK and blocknr == i:
                     if len(fd[i*512:]) > 512:
                         print "sending packet nr :" + str(i)
@@ -143,7 +148,7 @@ def tftp_transfer(fd, hostname, direction, filename):
                         chunk_to_be_sent = fd[i*512:(i+1)*512]
                         totalpacket = make_packet_data(blocknr, chunk_to_be_sent)
                         sock.sendto(totalpacket, server_addr)
-                        i++
+                        i = i+1
 
                     else:
                         blocknr = i
@@ -153,7 +158,7 @@ def tftp_transfer(fd, hostname, direction, filename):
                         print "Total file sent"
                         break
                 else: 
-                    print "Opcode: " + str(opcode) + " Something went wrong..."
+                    print "Opcode: " + str(opcode) + " Errormsg: " + str(arg)
             else:
                 print "Send timeout 5 sec"
                 sock.Timeout(5)
