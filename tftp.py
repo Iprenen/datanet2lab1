@@ -10,8 +10,8 @@ OPCODE_DATA=  3
 OPCODE_ACK=   4
 OPCODE_ERR=   5
 
-MODE_NETASCII= "netascii" # USE THIS!
-MODE_OCTET=    "octet"
+MODE_NETASCII= "netascii" 
+MODE_OCTET=    "octet" # Use this!
 MODE_MAIL=     "mail"
 
 TFTP_PORT= 69
@@ -95,28 +95,24 @@ def tftp_transfer(fd, hostname, direction, filename):
     # Check if we are putting a file or getting a file and send
     #  the corresponding request.
     if direction == OPCODE_RRQ: #We want to Get file
-        message = make_packet_rrq(filename, MODE_NETASCII)
+        message = make_packet_rrq(filename, MODE_OCTET)
         socket.sendto(message, hostname)
-        msg = socket.recv(516) # Recieve message from server
-        answer = parse_package(msg)
+        f = open('received_file', 'wb')
 
     elif direction == OPCODE_WRQ: #We want to Put file
-        message = make_packet_wrq(filename, MODE_NETASCII)
+        message = make_packet_wrq(filename, MODE_OCTET)
         socket.sendto(message, hostname)
         msg = socket.recv(516) # message from server
         answer = parse_package(msg)
     # Put or get the file, block by block, in a loop.
     while True:
+        msg = socket.recv(516) # Recieve message from server
+        answer = parse_package(msg)
         if answer[0] == 3:
-            data = []
-            chunk = answer[1]
-            with open('received_file', 'wb') as f:
-                while chunk != 0:
-                    datas = socket.recv(516)
-                    packet = parse_package(datas)
-                    chunk = packet[1]
-                    data.append(datas)
-                f.write(data)
+            blocknr = answer[1]
+            data = answer[2]
+            socket.sendto(make_packet_ack(blocknr), hostname)
+            f.write(data)
             
         elif answer[0] == 4:
             tot_sent = 0
