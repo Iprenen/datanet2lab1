@@ -112,7 +112,7 @@ def tftp_transfer(fd, hostname, direction, filename):
                 chunk_of_data, addr = sock.recvfrom(516) # Recieve message from server
                 opcode, blocknr, data = parse_packet(chunk_of_data) # Unpack message
                 if len(data) >= 512 and last_recieved == blocknr[0]-1: # Not last chunk to be transfered and the package is the next in order
-                    print 'Created ack with nr ' + str(blocknr[0])
+                    print "Created ack with nr " + str(blocknr[0])
                     ack = make_packet_ack(blocknr[0])
                     sock.sendto(ack, addr)
                     print "Sent ack to server"
