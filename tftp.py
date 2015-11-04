@@ -71,7 +71,8 @@ def parse_packet(msg):
         return opcode, blocknr, data
     elif opcode == OPCODE_ACK:
         blocknr = struct.unpack("!H", msg[2:4])
-        return opcode, blocknr
+        arg = "None"
+        return opcode, blocknr, arg
     elif opcode == OPCODE_ERR:
         errorcode = struct.unpack("!H", msg[2:4])
         errormsg = msg[4:].split('\0')
@@ -141,20 +142,22 @@ def tftp_transfer(fd, hostname, direction, filename):
             if readable > 0:
                 chunk_of_data, addr = sock.recvfrom(516) # Recieve message from server
                 opcode, blocknr, arg = parse_packet(chunk_of_data)
-                if opcode == OPCODE_ACK and blocknr == i: # Check so it's the ack for the latest sent chunk
-                    if len(fd[i*512:]) > 512:   # Check so we aren't in the end of file = last chunk
+                print opcode
+                print blocknr
+                if opcode == OPCODE_ACK and blocknr[0] == i: # Check so it's the ack for the latest sent chunk
+                    chunk_to_be_sent = fd.read(512)
+                    i = i+1
+                    if len(chunk_to_be_sent) >= 512:   # Check so we aren't in the end of file = last chunk
                         print "sending packet nr :" + str(i)
                         blocknr = i
-                        chunk_to_be_sent = fd[i*512:(i+1)*512]
                         totalpacket = make_packet_data(blocknr, chunk_to_be_sent)
-                        sock.sendto(totalpacket, server_addr)
-                        i = i+1
+                        sock.sendto(totalpacket, addr)
+                        
 
                     else: # Last chunk to be sent, take the last data and make a chunk of it
                         blocknr = i
-                        chunk_to_be_sent = fd[i*512:]
                         totalpacket = make_packet_data(blocknr, chunk_to_be_sent)
-                        sock.sendto(totalpacket, server_addr)
+                        sock.sendto(totalpacket, addr)
                         print "Total file sent"
                         break
                 else: 
