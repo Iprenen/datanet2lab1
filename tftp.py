@@ -90,10 +90,10 @@ def tftp_transfer(fd, hostname, direction, filename):
     TFTP_LOSS_PORT10 = 11069  # Port with 10% simulated package loss
     TFTP_LOSS_PORT20 = 12069  # Port with 20% -----
     TFTP_LOSS_PORT30 = 13069  # Port with 20% -----
-    TFTP_DUPLICATE_PORT = 20069 # Port with simulated duplicate acks
+  
     
 
-    server_addr = socket.getaddrinfo(hostname, TFTP_PORT)[0][4:][0] # Get server info like IP and port
+    server_addr = socket.getaddrinfo(hostname, TFTP_LOSS_PORT30)[0][4:][0] # Get server info like IP and port
     server_addr_ip = server_addr[0]
     server_addr_port = server_addr[1]
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Initiate socket
@@ -102,6 +102,7 @@ def tftp_transfer(fd, hostname, direction, filename):
     # Check if we are putting a file or getting a file and send
     #  the corresponding request.
     try: 
+        total_file_sent = 0
         if direction == TFTP_GET: #We want to Get file
             message = make_packet_rrq(filename, MODE_OCTET)
             sock.sendto(message, server_addr)
@@ -111,6 +112,7 @@ def tftp_transfer(fd, hostname, direction, filename):
             message = make_packet_wrq(filename, MODE_OCTET)
             sock.sendto(message, server_addr)
             i = 0;
+
 
     except Exception, Excepterror:
             if (Excepterror == 'timed out') == True: 
@@ -158,7 +160,7 @@ def tftp_transfer(fd, hostname, direction, filename):
                 if readable > 0: # Check if socket has received complete package
                     chunk_of_data, server_addr = sock.recvfrom(516) # Get package and return adress from socket buffer
                     opcode, blocknr, arg = parse_packet(chunk_of_data)
-                    if opcode == OPCODE_ACK and blocknr[0] == i: # Check so it's the ack for the latest sent chunk
+                    if opcode == OPCODE_ACK and blocknr[0] == i and total_file_sent != 1: # Check so it's the ack for the latest sent chunk
                         chunk_to_be_sent = fd.read(512)
                         i = i+1
                         if len(chunk_to_be_sent) >= 512:   # Check so we aren't in the end of file = last chunk
@@ -171,16 +173,15 @@ def tftp_transfer(fd, hostname, direction, filename):
                             message = make_packet_data(blocknr, chunk_to_be_sent)
                             sock.sendto(message, server_addr)
                             print "sending last packet with nr: " + str(i)
-                            print "Total file sent"
-                            break
-                        
-                        else: # Failed to transmit, transmitt same package again
-                            sock.sendto(message, server_addr)
-                            print "Resent package"
-
+                            total_file_sent = 1
+                        else: 
+                            print "Shouldn't have gotten here..."
+                    elif total_file_sent == 1:
+                        print "Total file sent!"
 
                     else: 
                         print "Opcode: " + str(opcode) + " Errormsg: " + str(arg) # Error handling, returns error code and message
+
                 else:
                     print "Send timeout 5 sec" 
                     sock.Timeout(5) # Time out for the socket if the message haven't been completly delivered
@@ -193,9 +194,12 @@ def tftp_transfer(fd, hostname, direction, filename):
                 print "Failed miserably"
                 print Excepterror
                 break
-            else: 
+            elif total_file_sent == 1: 
+                break
+            else:
                 sock.sendto(message, server_addr)
                 print "Resent message because of timeout"
+
 
         # Wait for packet, write the data to the filedescriptor or
         # read the next block from the file. Send new packet to server.
