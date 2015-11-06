@@ -176,7 +176,8 @@ def tftp_transfer(fd, hostname, direction, filename):
                             total_file_sent = 1
                         else: 
                             print "Shouldn't have gotten here..."
-                    elif total_file_sent == 1:
+                    elif opcode == OPCODE_ACK and total_file_sent == 1:
+                        sock.sendto(message, server_addr)
                         print "Total file sent!"
 
                     else: 
