@@ -114,7 +114,6 @@ def tftp_transfer(fd, hostname, direction, filename):
             if (Excepterror == 'timed out') == True: 
                 print "Fucked up error..."
                 print Excepterror
-                break
             else: 
                 sock.sendto(message, server_addr)
                 print "Resent message because of timeout"
