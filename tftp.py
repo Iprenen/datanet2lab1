@@ -91,7 +91,7 @@ def tftp_transfer(fd, hostname, direction, filename):
     TFTP_DUPLICATE_PORT = 20069 # Port with simulated duplicate acks
     
 
-    server_addr = socket.getaddrinfo(hostname, TFTP_LOSS_PORT)[0][4:][0] # Get server info like IP and port
+    server_addr = socket.getaddrinfo(hostname, TFTP_LOSS_PORT10)[0][4:][0] # Get server info like IP and port
     server_addr_ip = server_addr[0]
     server_addr_port = server_addr[1]
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Initiate socket
@@ -99,16 +99,26 @@ def tftp_transfer(fd, hostname, direction, filename):
 
     # Check if we are putting a file or getting a file and send
     #  the corresponding request.
-    if direction == TFTP_GET: #We want to Get file
-        message = make_packet_rrq(filename, MODE_OCTET)
-        sock.sendto(message, server_addr)
-        last_recieved = 0
+    try: 
+        if direction == TFTP_GET: #We want to Get file
+            message = make_packet_rrq(filename, MODE_OCTET)
+            sock.sendto(message, server_addr)
+            last_recieved = 0
 
-    elif direction == TFTP_PUT: #We want to Put file
-        message = make_packet_wrq(filename, MODE_OCTET)
-        sock.sendto(message, server_addr)
-        i = 0;
+        elif direction == TFTP_PUT: #We want to Put file
+            message = make_packet_wrq(filename, MODE_OCTET)
+            sock.sendto(message, server_addr)
+            i = 0;
 
+    except Exception, Excepterror:
+            if (Excepterror == 'timed out') == True: 
+                print "Fucked up error..."
+                print Excepterror
+                break
+            else: 
+                sock.sendto(message, server_addr)
+                print "Resent message because of timeout"
+    
     # Put or get the file, block by block, in a loop.
     while True:
         readable, writable, exceptional = select.select([sock], [], [], 1)
