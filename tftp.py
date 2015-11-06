@@ -91,7 +91,7 @@ def tftp_transfer(fd, hostname, direction, filename):
     TFTP_DUPLICATE_PORT = 20069 # Port with simulated duplicate acks
     
 
-    server_addr = socket.getaddrinfo(hostname, TFTP_LOSS_PORT10)[0][4:][0] # Get server info like IP and port
+    server_addr = socket.getaddrinfo(hostname, TFTP_LOSS_PORT20)[0][4:][0] # Get server info like IP and port
     server_addr_ip = server_addr[0]
     server_addr_port = server_addr[1]
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Initiate socket
@@ -124,12 +124,12 @@ def tftp_transfer(fd, hostname, direction, filename):
         try:
             if direction == TFTP_GET:
                 if readable > 0: # Check if socket has received complete package
-                    chunk_of_data, addr = sock.recvfrom(516) # Get package and return adress from socket buffer
+                    chunk_of_data, server_addr = sock.recvfrom(516) # Get package and return adress from socket buffer
                     opcode, blocknr, data = parse_packet(chunk_of_data) # Unpack message
                     if len(data) >= 512 and last_recieved == blocknr[0]-1: # Not last chunk to be transfered and the package is the next in order
                         print "Created ack with nr " + str(blocknr[0])
                         message = make_packet_ack(blocknr[0])
-                        sock.sendto(message, addr)
+                        sock.sendto(message, server_addr)
                         print "Sent ack to server"
                         print "Wrote to file"
                         fd.write(data)
@@ -137,7 +137,7 @@ def tftp_transfer(fd, hostname, direction, filename):
                     elif len(data) < 512 and last_recieved == blocknr[0]-1: # Last chunk to be transfered and the package is the next in order
                         print "Created ack with nr " + str(blocknr[0])
                         message = make_packet_ack(blocknr[0])
-                        sock.sendto(message, addr)
+                        sock.sendto(message, server_addr)
                         print "Sent ack to server"
                         print "Wrote to file"
                         fd.write(data)
@@ -145,7 +145,7 @@ def tftp_transfer(fd, hostname, direction, filename):
                         break
                     else:
                         message = make_packet_ack(last_recieved) # Not the correct chunk recieved, resend latest correct ack
-                        sock.sendto(message, addr)
+                        sock.sendto(message, server_addr)
                         print "Resent ack"
                 else:
                     print "Recieve timeout 5 sec"
@@ -154,7 +154,7 @@ def tftp_transfer(fd, hostname, direction, filename):
             
             elif direction == TFTP_PUT:
                 if readable > 0: # Check if socket has received complete package
-                    chunk_of_data, addr = sock.recvfrom(516) # Get package and return adress from socket buffer
+                    chunk_of_data, server_addr = sock.recvfrom(516) # Get package and return adress from socket buffer
                     opcode, blocknr, arg = parse_packet(chunk_of_data)
                     if opcode == OPCODE_ACK and blocknr[0] == i: # Check so it's the ack for the latest sent chunk
                         chunk_to_be_sent = fd.read(512)
@@ -163,19 +163,19 @@ def tftp_transfer(fd, hostname, direction, filename):
                             print "sending packet nr: " + str(i)
                             blocknr = i
                             message = make_packet_data(blocknr, chunk_to_be_sent)
-                            sock.sendto(message, addr)
+                            sock.sendto(message, server_addr)
                         
 
                         elif len(chunk_to_be_sent) < 512: # Last chunk to be sent, take the last data and make a chunk of it
                             blocknr = i
                             message = make_packet_data(blocknr, chunk_to_be_sent)
-                            sock.sendto(message, addr)
+                            sock.sendto(message, server_addr)
                             print "sending last packet with nr: " + str(i)
                             print "Total file sent"
                             break
                         
                         else: # Failed to transmit, transmitt same package again
-                            sock.sendto(message, addr)
+                            sock.sendto(message, server_addr)
                             print "Resent package"
 
 
@@ -194,7 +194,7 @@ def tftp_transfer(fd, hostname, direction, filename):
                 print Excepterror
                 break
             else: 
-                sock.sendto(message, addr)
+                sock.sendto(message, server_addr)
                 print "Resent message because of timeout"
 
         # Wait for packet, write the data to the filedescriptor or
