@@ -85,7 +85,9 @@ def tftp_transfer(fd, hostname, direction, filename):
     # Creating a socket to be used
 
     TFTP_PORT= 6969 # Port with no simulated package loss
-    TFTP_LOSS_PORT = 10069  # Port with simulated package loss
+    TFTP_LOSS_PORT10 = 11069  # Port with 10% simulated package loss
+    TFTP_LOSS_PORT20 = 12069  # Port with 20% -----
+    TFTP_LOSS_PORT30 = 13069  # Port with 20% -----
     TFTP_DUPLICATE_PORT = 20069 # Port with simulated duplicate acks
     
 
