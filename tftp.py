@@ -93,7 +93,7 @@ def tftp_transfer(fd, hostname, direction, filename):
     TFTP_DUPLICATE_PORT = 20069 # Port with simulated duplicate acks
     
 
-    server_addr = socket.getaddrinfo(hostname, TFTP_LOSS_PORT20)[0][4:][0] # Get server info like IP and port
+    server_addr = socket.getaddrinfo(hostname, TFTP_PORT)[0][4:][0] # Get server info like IP and port
     server_addr_ip = server_addr[0]
     server_addr_port = server_addr[1]
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Initiate socket
@@ -166,8 +166,6 @@ def tftp_transfer(fd, hostname, direction, filename):
                             blocknr = i
                             message = make_packet_data(blocknr, chunk_to_be_sent)
                             sock.sendto(message, server_addr)
-                        
-
                         elif len(chunk_to_be_sent) < 512: # Last chunk to be sent, take the last data and make a chunk of it
                             blocknr = i
                             message = make_packet_data(blocknr, chunk_to_be_sent)
@@ -192,7 +190,7 @@ def tftp_transfer(fd, hostname, direction, filename):
                 break
         except Exception, Excepterror:
             if (Excepterror == 'timed out') == True: 
-                print "Fucked up error..."
+                print "Failed miserably"
                 print Excepterror
                 break
             else: 
