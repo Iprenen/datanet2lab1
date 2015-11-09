@@ -93,7 +93,7 @@ def tftp_transfer(fd, hostname, direction, filename):
   
     
 
-    server_addr = socket.getaddrinfo(hostname, TFTP_LOSS_PORT30)[0][4:][0] # Get server info like IP and port
+    server_addr = socket.getaddrinfo(hostname, TFTP_PORT_LOSS)[0][4:][0] # Get server info like IP and port
     server_addr_ip = server_addr[0]
     server_addr_port = server_addr[1]
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Initiate socket
@@ -125,8 +125,8 @@ def tftp_transfer(fd, hostname, direction, filename):
     # Put or get the file, block by block, in a loop.
     while True:
         readable, writable, exceptional = select.select([sock], [], [], 1)
-        try:
-            if direction == TFTP_GET:
+        if direction == TFTP_GET:
+            try:   
                 if readable > 0: # Check if socket has received complete package
                     chunk_of_data, server_addr = sock.recvfrom(516) # Get package and return adress from socket buffer
                     opcode, blocknr, data = parse_packet(chunk_of_data) # Unpack message
@@ -154,9 +154,18 @@ def tftp_transfer(fd, hostname, direction, filename):
                 else:
                     print "Recieve timeout 5 sec"
                     sock.Timeout(5)
-
+            except Exception, Excepterror:
+                if (Excepterror == 'timed out') == True: 
+                    print "Failed miserably"
+                    print Excepterror
+                    break
+                         
+                else:
+                    sock.sendto(message, server_addr)
+                    print "Resent message because of timeout"         
             
-            elif direction == TFTP_PUT:
+        elif direction == TFTP_PUT:
+            try:
                 if readable > 0: # Check if socket has received complete package
                     chunk_of_data, server_addr = sock.recvfrom(516) # Get package and return adress from socket buffer
                     opcode, blocknr, arg = parse_packet(chunk_of_data)
@@ -174,9 +183,10 @@ def tftp_transfer(fd, hostname, direction, filename):
                             sock.sendto(message, server_addr)
                             print "sending last packet with nr: " + str(i)
                             total_file_sent = 1
+                            break
                         else: 
                             print "Shouldn't have gotten here..."
-                    elif opcode == OPCODE_ACK and total_file_sent == 1:
+                    elif opcode == OPCODE_ACK and blocknr[0] == i and total_file_sent == 1: #Last chunk has been sent, check if it arrived
                         sock.sendto(message, server_addr)
                         print "Total file sent!"
 
@@ -187,20 +197,22 @@ def tftp_transfer(fd, hostname, direction, filename):
                     print "Send timeout 5 sec" 
                     sock.Timeout(5) # Time out for the socket if the message haven't been completly delivered
 
-            else: 
-                print "Failed miserably" #When all else fails!
-                break
-        except Exception, Excepterror:
-            if (Excepterror == 'timed out') == True: 
-                print "Failed miserably"
-                print Excepterror
-                break
-            elif total_file_sent == 1: 
-                break
-            else:
-                sock.sendto(message, server_addr)
-                print "Resent message because of timeout"
+            except Exception, Excepterror:
+                if (Excepterror == 'timed out') == True: 
+                    print "Failed miserably"
+                    print Excepterror
+                    break
+                elif total_file_sent == 1: 
+                    break
+                else:
+                    sock.sendto(message, server_addr)
+                    print "Resent message because of timeout"
+        else: 
+            print "Failed miserably" #When all else fails!
+            break
+            
 
+                
 
         # Wait for packet, write the data to the filedescriptor or
         # read the next block from the file. Send new packet to server.
