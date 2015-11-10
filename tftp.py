@@ -15,7 +15,7 @@ MODE_OCTET=    "octet" # Use this!
 MODE_MAIL=     "mail"
 
 # Timeout in seconds
-TFTP_TIMEOUT= 1
+TFTP_TIMEOUT= 0.1
 
 ERROR_CODES = ["Undef",
                "File not found",
@@ -88,7 +88,7 @@ def tftp_transfer(fd, hostname, direction, filename):
   
     
 
-    server_addr = socket.getaddrinfo(hostname, TFTP_LOSS_PORT30)[0][4:][0] # Get server info, like IP and port
+    server_addr = socket.getaddrinfo(hostname, TFTP_PORT)[0][4:][0] # Get server info, like IP and port
     server_addr_ip = server_addr[0]
     server_addr_port = server_addr[1]
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Initiate socket
@@ -125,28 +125,26 @@ def tftp_transfer(fd, hostname, direction, filename):
             try:   
                 if readable > 0: # Check if socket has received complete package
                     chunk_of_data, server_addr = sock.recvfrom(516) # Get package and return adress from socket buffer
-                    opcode, blocknr, data = parse_packet(chunk_of_data) # Unpack message
-                    if len(data) >= 512 and last_recieved == blocknr[0]-1: # Not last chunk to be transfered and the package is the next in order
+                    opcode, blocknr, arg = parse_packet(chunk_of_data) # Unpack message
+                    if opcode == OPCODE_DATA and len(arg) >= 512 and last_recieved == blocknr[0]-1: # Not last chunk to be transfered and the package is the next in order
                         print "Created ack with nr " + str(blocknr[0])
                         message = make_packet_ack(blocknr[0])
                         sock.sendto(message, server_addr)
-                        print "Sent ack to server"
-                        print "Wrote to file"
-                        fd.write(data)
+                        fd.write(arg)
                         last_recieved = blocknr[0]
-                    elif len(data) < 512 and last_recieved == blocknr[0]-1: # Last chunk to be transfered and the package is the next in order
+                    elif opcode == OPCODE_DATA and len(arg) < 512 and last_recieved == blocknr[0]-1: # Last chunk to be transfered and the package is the next in order
                         print "Created ack with nr " + str(blocknr[0])
                         message = make_packet_ack(blocknr[0])
                         sock.sendto(message, server_addr)
-                        print "Sent ack to server"
-                        print "Wrote to file"
-                        fd.write(data)
+                        fd.write(arg)
                         print "End of transfer"
+                        break
+                    elif opcode == OPCODE_ERR:
+                        print "Opcode: " + str(opcode) + " Errormsg: " + str(arg[0]) # Error handling, returns error code and message
                         break
                     else:
                         message = make_packet_ack(last_recieved) # Not the correct chunk recieved, resend latest correct ack
                         sock.sendto(message, server_addr)
-                        print "Resent ack"
                 else:
                     print "Recieve timeout TFTP_TIMEOUT sec"
                     sock.Timeout(TFTP_TIMEOUT)
@@ -186,7 +184,8 @@ def tftp_transfer(fd, hostname, direction, filename):
                         sock.sendto(message, server_addr)
 
                     else: 
-                        print "Opcode: " + str(opcode) + " Errormsg: " + str(arg) # Error handling, returns error code and message
+                        print "Opcode: " + str(opcode) + " Errormsg: " + str(arg[0]) # Error handling, returns error code and message
+                        break
 
                 else:
                     print "Send timeout TFTP_TIMEOUT sec" 
