@@ -32,21 +32,19 @@ TFTP_PUT = 2
 
 
 def make_packet_rrq(filename, mode): #Opcode = 1
-    # Note the exclamation mark in the format string to pack(). What is it for? OPcode = 0
     return struct.pack("!H", OPCODE_RRQ) + filename + '\0' + mode + '\0'
 
 def make_packet_wrq(filename, mode): #Opcode = 2
-    return struct.pack("!H", OPCODE_WRQ) + filename + '\0' + mode + '\0' 
-    # TODO Write code for send wrq request, check if  ACK = Blocknr 0 => accepted, OPcode = 1
+    return struct.pack("!H", OPCODE_WRQ) + filename + '\0' + mode + '\0'
 
 def make_packet_data(blocknr, data): #Opcode = 3
-    return struct.pack("!HH", OPCODE_DATA, blocknr) + data # TODO
+    return struct.pack("!HH", OPCODE_DATA, blocknr) + data 
 
 def make_packet_ack(blocknr): #Opcode = 4
-    return struct.pack("!HH", OPCODE_ACK, blocknr) # TODO
+    return struct.pack("!HH", OPCODE_ACK, blocknr) 
 
 def make_packet_err(errcode, errmsg): #Opcode = 5
-    return struct.pack("!H", OPCODE_ERR) + errcode + errmsg + '\0' # TODO
+    return struct.pack("!H", OPCODE_ERR) + errcode + errmsg + '\0' 
 
 def parse_packet(msg):
     """This function parses a recieved packet and returns a tuple where the
@@ -80,42 +78,39 @@ def parse_packet(msg):
     return None
     
 def tftp_transfer(fd, hostname, direction, filename):
-    # Implement this function
-    # Open socket interface
-    # Creating a socket to be used
-
+   
     TFTP_PORT= 6969 # Port with no simulated package loss
     TFTP_PORT_LOSS = 10069 # Port with simulated loss
     TFTP_PORT_DUPL = 20069 # Port with duplicate acks
     TFTP_LOSS_PORT10 = 11069  # Port with 10% simulated package loss
     TFTP_LOSS_PORT20 = 12069  # Port with 20% -----
-    TFTP_LOSS_PORT30 = 13069  # Port with 20% -----
+    TFTP_LOSS_PORT30 = 13069  # Port with 30% -----
   
     
 
-    server_addr = socket.getaddrinfo(hostname, TFTP_LOSS_PORT30)[0][4:][0] # Get server info like IP and port
+    server_addr = socket.getaddrinfo(hostname, TFTP_LOSS_PORT30)[0][4:][0] # Get server info, like IP and port
     server_addr_ip = server_addr[0]
     server_addr_port = server_addr[1]
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Initiate socket
     sock.settimeout(TFTP_TIMEOUT) # One way of adding timeout to the socket
 
     # Check if we are putting a file or getting a file and send
-    #  the corresponding request.
+    # the corresponding request.
     try: 
         total_file_sent = 0
-        if direction == TFTP_GET: #We want to Get file
+        if direction == TFTP_GET: #We want to get a file
             message = make_packet_rrq(filename, MODE_OCTET)
             sock.sendto(message, server_addr)
             last_recieved = 0
 
-        elif direction == TFTP_PUT: #We want to Put file
+        elif direction == TFTP_PUT: #We want to put a file
             message = make_packet_wrq(filename, MODE_OCTET)
             sock.sendto(message, server_addr)
             packetnr = 0
             timeoutnr = 0
 
 
-    except Exception, Excepterror:
+    except Exception, Excepterror: #Handle exceptions
             if (Excepterror == 'timed out') == True: 
                 print "Send error in request action"
                 print Excepterror
@@ -163,7 +158,7 @@ def tftp_transfer(fd, hostname, direction, filename):
                     break
                          
                 else:
-                    sock.sendto(message, server_addr) # Resend because of timeout
+                    sock.sendto(message, server_addr) # Resend message because of timeout
         
             
         elif direction == TFTP_PUT:
@@ -187,7 +182,7 @@ def tftp_transfer(fd, hostname, direction, filename):
                             total_file_sent = 1
                         else: 
                             print "Something with packaging in put went wrong"
-                    elif opcode == OPCODE_ACK and blocknr[0] != packetnr: # Latest ack was not correct, resend
+                    elif opcode == OPCODE_ACK and blocknr[0] != packetnr: # Latest ack was not correct, resend message
                         sock.sendto(message, server_addr)
 
                     else: 
@@ -197,7 +192,7 @@ def tftp_transfer(fd, hostname, direction, filename):
                     print "Send timeout TFTP_TIMEOUT sec" 
                     sock.Timeout(TFTP_TIMEOUT) # Time out for the socket if the message haven't been completly delivered
 
-            except Exception, Excepterror:
+            except Exception, Excepterror: # Handle exceptions
                 if (Excepterror == 'timed out') == True: 
                     print "Runtime exception error, see print: "
                     print Excepterror
@@ -206,7 +201,7 @@ def tftp_transfer(fd, hostname, direction, filename):
                     print "Total file sent"
                     break
                 elif timeoutnr < 3:
-                    sock.sendto(message, server_addr) # resend because of timeout!
+                    sock.sendto(message, server_addr) # Resend because of timeout!
                     timeoutnr = timeoutnr + 1
                 else: 
                     print "Terminate because of timeout"
@@ -217,10 +212,6 @@ def tftp_transfer(fd, hostname, direction, filename):
 
                 
 
-        # Wait for packet, write the data to the filedescriptor or
-        # read the next block from the file. Send new packet to server.
-        # Don't forget to deal with timeouts and received error packets.
-        # r,w,e = socket.select
         pass
 
 
