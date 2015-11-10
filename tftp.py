@@ -127,16 +127,17 @@ def tftp_transfer(fd, hostname, direction, filename):
                     chunk_of_data, server_addr = sock.recvfrom(516) # Get package and return adress from socket buffer
                     opcode, blocknr, arg = parse_packet(chunk_of_data) # Unpack message
                     if opcode == OPCODE_DATA and len(arg) >= 512 and last_recieved == blocknr[0]-1: # Not last chunk to be transfered and the package is the next in order
-                        print "Created ack with nr " + str(blocknr[0])
+                        print "Sent ack with nr " + str(blocknr[0])
                         message = make_packet_ack(blocknr[0])
                         sock.sendto(message, server_addr)
                         fd.write(arg)
                         last_recieved = blocknr[0]
                     elif opcode == OPCODE_DATA and len(arg) < 512 and last_recieved == blocknr[0]-1: # Last chunk to be transfered and the package is the next in order
-                        print "Created ack with nr " + str(blocknr[0])
+                        print "Sent ack with nr " + str(blocknr[0])
                         message = make_packet_ack(blocknr[0])
                         sock.sendto(message, server_addr)
                         fd.write(arg)
+                        last_recieved = blocknr[0]
                         print "End of transfer"
                         break
                     elif opcode == OPCODE_ERR:
@@ -168,14 +169,14 @@ def tftp_transfer(fd, hostname, direction, filename):
                         chunk_to_be_sent = fd.read(512)
                         packetnr = packetnr+1
                         if len(chunk_to_be_sent) >= 512:   # Check so we aren't in the end of file = not last chunk
-                            print "sending packet nr: " + str(packetnr)
+                            print "Sent packet nr: " + str(packetnr)
                             message = make_packet_data(packetnr, chunk_to_be_sent)
                             sock.sendto(message, server_addr)
                             timeoutnr = 0
                         elif len(chunk_to_be_sent) < 512: # Last chunk to be sent, take the last data and make a chunk of it
                             message = make_packet_data(packetnr, chunk_to_be_sent)
                             sock.sendto(message, server_addr)
-                            print "sending packet nr: " + str(packetnr)
+                            print "Sent packet nr: " + str(packetnr)
                             timeoutnr = 0
                             total_file_sent = 1
                         else: 
