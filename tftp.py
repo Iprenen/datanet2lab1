@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#!/usr/bin/env python
 
 import sys,socket,struct,select
 
@@ -15,7 +15,7 @@ MODE_OCTET=    "octet" # Use this!
 MODE_MAIL=     "mail"
 
 # Timeout in seconds
-TFTP_TIMEOUT= 2
+TFTP_TIMEOUT= 1
 
 ERROR_CODES = ["Undef",
                "File not found",
@@ -93,7 +93,7 @@ def tftp_transfer(fd, hostname, direction, filename):
   
     
 
-    server_addr = socket.getaddrinfo(hostname, TFTP_PORT_LOSS)[0][4:][0] # Get server info like IP and port
+    server_addr = socket.getaddrinfo(hostname, TFTP_LOSS_PORT30)[0][4:][0] # Get server info like IP and port
     server_addr_ip = server_addr[0]
     server_addr_port = server_addr[1]
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Initiate socket
@@ -111,12 +111,13 @@ def tftp_transfer(fd, hostname, direction, filename):
         elif direction == TFTP_PUT: #We want to Put file
             message = make_packet_wrq(filename, MODE_OCTET)
             sock.sendto(message, server_addr)
-            i = 0;
+            packetnr = 0
+            timeoutnr = 0
 
 
     except Exception, Excepterror:
             if (Excepterror == 'timed out') == True: 
-                print "Fucked up error..."
+                print "Send error in request action"
                 print Excepterror
             else: 
                 sock.sendto(message, server_addr)
@@ -152,8 +153,9 @@ def tftp_transfer(fd, hostname, direction, filename):
                         sock.sendto(message, server_addr)
                         print "Resent ack"
                 else:
-                    print "Recieve timeout 5 sec"
-                    sock.Timeout(5)
+                    print "Recieve timeout TFTP_TIMEOUT sec"
+                    sock.Timeout(TFTP_TIMEOUT)
+
             except Exception, Excepterror:
                 if (Excepterror == 'timed out') == True: 
                     print "Failed miserably"
@@ -161,54 +163,55 @@ def tftp_transfer(fd, hostname, direction, filename):
                     break
                          
                 else:
-                    sock.sendto(message, server_addr)
-                    print "Resent message because of timeout"         
+                    sock.sendto(message, server_addr) # Resend because of timeout
+        
             
         elif direction == TFTP_PUT:
             try:
                 if readable > 0: # Check if socket has received complete package
                     chunk_of_data, server_addr = sock.recvfrom(516) # Get package and return adress from socket buffer
                     opcode, blocknr, arg = parse_packet(chunk_of_data)
-                    if opcode == OPCODE_ACK and blocknr[0] == i and total_file_sent != 1: # Check so it's the ack for the latest sent chunk
+                    if opcode == OPCODE_ACK and blocknr[0] == packetnr: # Check so it's the ack for the latest sent chunk
                         chunk_to_be_sent = fd.read(512)
-                        i = i+1
-                        if len(chunk_to_be_sent) >= 512:   # Check so we aren't in the end of file = last chunk
-                            print "sending packet nr: " + str(i)
-                            blocknr = i
-                            message = make_packet_data(blocknr, chunk_to_be_sent)
+                        packetnr = packetnr+1
+                        if len(chunk_to_be_sent) >= 512:   # Check so we aren't in the end of file = not last chunk
+                            print "sending packet nr: " + str(packetnr)
+                            message = make_packet_data(packetnr, chunk_to_be_sent)
                             sock.sendto(message, server_addr)
+                            timeoutnr = 0
                         elif len(chunk_to_be_sent) < 512: # Last chunk to be sent, take the last data and make a chunk of it
-                            blocknr = i
-                            message = make_packet_data(blocknr, chunk_to_be_sent)
+                            message = make_packet_data(packetnr, chunk_to_be_sent)
                             sock.sendto(message, server_addr)
-                            print "sending last packet with nr: " + str(i)
+                            print "sending packet nr: " + str(packetnr)
+                            timeoutnr = 0
                             total_file_sent = 1
-                            break
                         else: 
-                            print "Shouldn't have gotten here..."
-                    elif opcode == OPCODE_ACK and blocknr[0] == i and total_file_sent == 1: #Last chunk has been sent, check if it arrived
+                            print "Something with packaging in put went wrong"
+                    elif opcode == OPCODE_ACK and blocknr[0] != packetnr: # Latest ack was not correct, resend
                         sock.sendto(message, server_addr)
-                        print "Total file sent!"
 
                     else: 
                         print "Opcode: " + str(opcode) + " Errormsg: " + str(arg) # Error handling, returns error code and message
 
                 else:
-                    print "Send timeout 5 sec" 
-                    sock.Timeout(5) # Time out for the socket if the message haven't been completly delivered
+                    print "Send timeout TFTP_TIMEOUT sec" 
+                    sock.Timeout(TFTP_TIMEOUT) # Time out for the socket if the message haven't been completly delivered
 
             except Exception, Excepterror:
                 if (Excepterror == 'timed out') == True: 
-                    print "Failed miserably"
+                    print "Runtime exception error, see print: "
                     print Excepterror
+                    break    
+                elif timeoutnr == 3 and total_file_sent == 1: # Total file sent and made sure that last package have arrived
+                    print "Total file sent"
                     break
-                elif total_file_sent == 1: 
-                    break
-                else:
-                    sock.sendto(message, server_addr)
-                    print "Resent message because of timeout"
+                elif timeoutnr < 3:
+                    sock.sendto(message, server_addr) # resend because of timeout!
+                    timeoutnr = timeoutnr + 1
+                else: 
+                    print "Terminate because of timeout"
         else: 
-            print "Failed miserably" #When all else fails!
+            print "Total breakdown in put. Should not have been able to get here. Line 214." # When all else fails!
             break
             
 
